@@ -1,0 +1,271 @@
+---
+title: "Cummings-M2Assignm"
+author: "ProfMeadows"
+date: "2026-01-25"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. 
+
+```{r}
+library(datasets)
+library(dplyr)
+install.packages("caret",dependencies = TRUE)
+library(caret)
+data(Titanic)
+library(skimr)
+library(tidyverse)
+library(faraway)
+library(ggplot2)
+library(alr4)
+library(effects)
+```
+
+## Scenario 1: Titanic Data Analysis
+1. Analyze the Titanic dataset to identify how survival rates varied by age, gender, and ticket class.
+  - Use a binomial logistic regression model to predict the survival of a passenger using all the other variables as predictors. 
+  - Note that the data is summarized. `Freq` variable is the number of passengers which meet the criteria given by the other variables. `Survived` indicates whether or not the passengers specified by `Freq` survived or not.
+  - Be sure to check the model assumptions.
+  
+### ID the binomial outcome and predictors
+Let the variable indicating survival probability, Y_i, be B(m_i,p_i). 
+
+### Plotting
+
+```{r}
+ggplot(titan100, aes(x = Class, y = Survived_bin, fill = Sex)) + 
+         stat_summary(fun = mean, geom = "bar", position = "dodge") +
+         facet_wrap(~ Age) +
+         ylim(0, 1) +
+         labs(y = "Survival Rate")
+```
+
+
+### Fit model
+```{r}
+toutput1 <- glm(cbind(Survived_bin, 2201 - Survived_bin) ~ .,family="binomial",
+  data = titan100)
+summary(toutput1)
+
+```
+The log odds (Intercept) when predictors are zero is -8.39, a negative number which points to nonsurvival. Zero factors or passengers represents a tuning parameter rather than a real scenario.
+
+The log odds or probability of survival decrease the most for third class passengers by -0.76 and increase only for female passengers, by 1.19. A bar graph visualizes these probabilities, shown above (line 44 chunk).  
+
+### Test assumptions
+Look at residuals then probability scale.
+
+
+```{r}
+lin <-round(predict(toutput1), 2)
+head(lin)
+```
+
+
+```{r}
+predprob <- round(predict(toutput1, type ="response"), 5)
+head(predprob)
+```
+
+```{r}
+pchisq(deviance(toutput1),df.residual(toutput1),lower=FALSE)
+```
+This p-value is above 0.05 so we can conclude its fit is sufficient.
+
+Compare this with null model:
+
+```{r}
+pchisq(1607.1,309.6,lower=FALSE)
+```
+This inadequate fit (by a long shot) shows the Y response is not by chance and is likely impacted by a predictor.
+
+
+2. Create clear visualizations to illustrate your findings.
+  - Use the `effects` package to plot the effects of the predictors in the final model.
+  - Remember to adjust the `fig.height` and `fig.width` chunk options so that the plots look nice.
+  
+###Visualization
+
+```{r PredictorsEffect, fig.height=8, fig.width=10}
+plot(allEffects(toutput1))
+```
+
+3. Draft a concise response to the client's email, summarizing the insights and providing recommendations for improving passenger safety.
+
+### Summary response to client
+
+Dear Mr. Suitmax: I appreciate the opportunity to share with you a summary of these well-known and useful Titanic data findings. They show the group with the lowest odds of survival and the highest, and the tendencies between these poles.
+  
+Given odds from 0 for nonsurvival to 1 for survival, data showed that probabilities for passengers with lowest priced tickets showed a downward probability, all at 0.001 level of significance or better. The overall probability of survival across all factors in the cruise scenario was low (signaled by a theoretical negative number, -8.39), and only females had a positive probability at 1.19.
+
+Passengers with first class tickets who were female, including children, had the best probabilty of survival. Crew members fared well, at -0.30, even better than second class, at -0.37 chance.
+
+Given the differential between the lowest- and highest-priced tickets and the better probabilities of women and children surviving a negative event, some considerations for sales and marketing could involve promotions favoring these groups. Addressing the differential in ticket prices could take many forms: it could simply be reduced, or proportions of the higher tickets could be increased relative to lower. 
+
+Please send us a request and we will be happy to arrange more in-depth discussion and insight for your situation.
+
+Warmly
+
+
+## Scenario 2: Framingham Heart Study
+**Town Hall Prep**:
+Your boss is preparing for a town hall meeting with public health officials. She has asked you to prepare an answer to the following question:  
+"What are the most critical demographic and lifestyle factors contributing to cardiovascular disease risk in our region? Are there specific interventions we should focus on?"
+
+**Your Task**:
+1. Analyze the Framingham dataset to identify key risk factors (e.g., age, cholesterol levels, smoking habits).
+  - Complete an analysis of this data using a binary logistic regression model to predict the 10 year risk of CHD using all the other variables as predictors.
+
+## Set up data
+
+Let the variable indicating the probability of chronic heart disease, Y_i, be 0/1 so Pr(Y_i = 1) = p_i.
+
+```{r}
+skim(framingham)
+```
+
+
+```{r}
+fram1 <- drop_na(framingham)
+```
+
+
+### Examine predictor(s).
+
+```{r}
+ggplot(framingham,aes(x=cigsPerDay, fill=factor(TenYearCHD)))+
+  geom_bar(position = position_dodge())
+
+ggplot(fram1,aes(x=BMI, fill=factor(TenYearCHD)))+
+  geom_histogram(position = "dodge", binwidth = 5, aes(y=after_stat(density)))
+```
+  - Use the `step` function to select the best model.
+  - Note: you will need to deal with "NAs".
+  - Note: you may need to consider the interactions between certain predictor variables (`currentSmoker` and `cigsPerDay`).
+  - Consider whether some variables should be excluded for reasons other than model fit.
+
+### Select & fit model
+```{r}
+m1<- glm(TenYearCHD ~ .,data=fram1,family="binomial")
+
+analysis1 <- step(m1, direction ="backward")
+summary(analysis1)
+
+```
+
+
+
+```{r}
+
+m5 <- glm(TenYearCHD ~ cigsPerDay, family = "binomial", 
+    data = fram1)
+summary(m5)
+```
+
+
+##Run selected model (m99)
+```{r}
+
+m99 <- glm(TenYearCHD ~ male + age + cigsPerDay + prevalentStroke + 
+    prevalentHyp + totChol + sysBP + glucose, family = "binomial", 
+    data = fram1)
+summary(m99)
+```
+
+##Consider interaction term - NA result for that predictor
+```{r}
+m00 <- glm(TenYearCHD ~ male + age + cigsPerDay + prevalentStroke + 
+    prevalentHyp + totChol + sysBP + glucose + currentSmoker + currentSmoker*cigsPerDay, 
+    family = "binomial", 
+    data = fram1)
+summary(m00)
+```
+
+The two terms, currentSmoker and cigsPerDay, as interactions added to an effective model, m99, appear to produce a slightly higher model score using AIC (2777 over 2775.2). Further, the output for the interaction is NA.
+
+
+Looking at residuals then probability scale.
+
+```{r}
+lin1 <-round(predict(m99), 2)
+head(lin1)
+```
+
+```{r}
+predprob1 <- round(predict(m99, type ="response"), 5)
+head(predprob1)
+```
+
+```{r}
+myrresid<-fram1$TenYearCHD-predprob
+plot(myrresid ~ lin1, xlab="Fitted Values", ylab="Raw Residuals")
+```
+Comparison of raw residuals with fitted values seems to show aligned residuals and deviance relationship in predictions of 1 and 0.
+
+
+```{r}
+confint(m99)
+```
+
+
+
+2. Create clear visualizations to illustrate your findings.
+  - Use the `effects` package to plot the effects of the predictors in the final model.
+  - Remember to adjust the `fig.height` and `fig.width` chunk options so that the plots look nice).
+
+###Visualizations   
+```{r}
+
+x <- seq(15, 60, 5)
+plot(ilogit(predict(m99, newdata = data.frame(BMI=x)) ) ~ x, 
+   ylab="p",xlab= "BMI", type="l")
+points(fram1$BMI,fram1$Y, col=(fram1$Y+3))
+
+```
+  Note: Haven't been able to troubleshoot this plotting function (above) to interpret BMI predictor.
+
+```{r CHD-Effects, fig.height=8, fig.width=14}
+plot(allEffects(m99))
+```
+
+
+2. Prepare a detailed written response, including:
+   - A summary of the most significant risk factors.
+   - Recommendations for targeted interventions, with specific examples based on your analysis.
+   
+### Summary and Recommendations Response
+
+Our model of the framingham data points to a few key risk factors for chronic heart disease (CHD). The high level of statistical significance and confidence levels for the predictors show that the estimates are very unlikely to be by chance.  Recommendations flowing from the risk factors would be based on patterns seen in the analysis that ultimately reference the exact reliable guidance addressing CHD that have been standard in the medical and health literature, and which contribute to confidence in this model output.
+
+Three key risk factors for CHD seen in our model were, by strength of the odds, prevalence of stroke at 0.75 likelihood, then high incidence in males at 0.55, followed by prevalence of hypertension at 0.22. High incidence in males showed high statistical significance at the 0.001 threshold, as did age, though the log-odds for CHD were much lower, at 0.06.   
+
+This small analysis showed that while heart health involves multiple factors, as seen in the multiple dataset variables, we can narrow down the ones with impact so that health guidance can pinpoint these in particular, namely avoiding stroke risk by the standard interventions of good diet and regular physical movement. This also addresses hypertension, related to the health of the heart and blood vessels. Our analysis allows us to note that prevalence of risk in males and even the controversial factor of total cholesterol or blood pressure represents at least as impactful an area of intervention as cigarettes, assuming the equal presence of a range of risk factors. Cigarettes effects on CHD at 0.30 probability for the highest daily cigarette use is still comparable to cholesterol level at around 0.25 and blood pressure at 0.6.
+
+
+## Scenario 3: Internal Briefing
+**Manager's Request**:
+Your manager was very impressed with your work on the last two assignments and has asked you to present a briefing at the next team meeting. The focus is on improving team efficiency in data analysis. She asks:  
+"Can you provide an example of how visualization or exploratory data analysis (EDA) has helped uncover hidden trends in our datasets? Use either the Titanic or Framingham data to demonstrate this."
+
+**Your Task**:
+1. Select one dataset (Titanic or Framingham) and use your exploratory data analysis from the previous task.
+2. Create a visualization that highlights a key trend or insight.
+
+### Note on a key insight.
+Goal: Show in Titanic data the link between women and (their) children's survival. A powerful insight that I saw as I explored the category frequencies.
+
+
+3. Write a short summary explaining how EDA was used to uncover this insight.
+
+
+
+
